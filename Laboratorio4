@@ -1,0 +1,1200 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "Copia de lesson4-convnets.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "machine_shape": "hm",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/JosDeleon/Seminario-Profesional-I/blob/master/Laboratorio4\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "QyER-wX4tvvt",
+        "colab_type": "text"
+      },
+      "source": [
+        "# Imports"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "_1__d-jeb4h1",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        },
+        "outputId": "8344bd47-5915-4fd4-cc30-51a644fb68e7"
+      },
+      "source": [
+        "%tensorflow_version 2.x\n",
+        "\n",
+        "import tensorflow as tf\n",
+        "import tensorflow_hub as hub\n",
+        "\n",
+        "from tensorflow.keras.models import Sequential\n",
+        "from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv2D, MaxPooling2D, Embedding\n",
+        "from tensorflow.keras.preprocessing.image import ImageDataGenerator\n",
+        "\n",
+        "import numpy as np\n",
+        "import PIL.Image as Image\n",
+        "import matplotlib.pylab as plt\n",
+        "import os, re, json, functools\n",
+        "import os\n",
+        "import pandas as pd\n",
+        "\n",
+        "\n",
+        "#dark mode\n",
+        "plt.rc_context({'xtick.color':'w', 'ytick.color':'w', 'text.color':'w', 'axes.labelcolor':'w'})\n",
+        "\n",
+        "\n",
+        "\n",
+        "seed=1234\n",
+        "np.random.seed(seed)\n",
+        "tf.random.set_seed(seed)"
+      ],
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "TensorFlow 2.x selected.\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "H03V-fNdkPb9",
+        "colab_type": "text"
+      },
+      "source": [
+        "#Dataset"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "xGW_h7_WonH9",
+        "colab_type": "code",
+        "outputId": "c32f2951-84c2-4e6c-a189-55ced632a02e",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 1000
+        }
+      },
+      "source": [
+        "os.environ['KAGGEL_USERNAME'] = \"josdeleon\"\n",
+        "os.environ['KAGGLE_KEY'] = \"308ee9dfc6a3244e366997ef5e195b41\"\n",
+        "\n",
+        "path_to_file = tf.keras.utils.get_file('messy-vs-clean-room.zip', \n",
+        "                                      origin='https://www.kaggle.com/cdawn1/messy-vs-clean-room', \n",
+        "                                      extract=True)\n",
+        "\n",
+        "path = os.path.join(os.path.dirname(path_to_file), 'messy-vs-clean-room')\n",
+        "\n",
+        "!kaggle datasets download cdawn1/messy-vs-clean-room\n",
+        "!unzip -o 'messy-vs-clean-room.zip'"
+      ],
+      "execution_count": 0,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Downloading data from https://www.kaggle.com/cdawn1/messy-vs-clean-room\n",
+            " 122880/Unknown - 0s 0us/stepmessy-vs-clean-room.zip: Skipping, found more recently modified local copy (use --force to force download)\n",
+            "Archive:  messy-vs-clean-room.zip\n",
+            "  inflating: images/images/test/0.png  \n",
+            "  inflating: images/images/test/1.png  \n",
+            "  inflating: images/images/test/2.png  \n",
+            "  inflating: images/images/test/3.png  \n",
+            "  inflating: images/images/test/4.png  \n",
+            "  inflating: images/images/test/5.png  \n",
+            "  inflating: images/images/test/6.png  \n",
+            "  inflating: images/images/test/7.png  \n",
+            "  inflating: images/images/test/8.png  \n",
+            "  inflating: images/images/test/9.png  \n",
+            "  inflating: images/images/train/clean/0.png  \n",
+            "  inflating: images/images/train/clean/1.png  \n",
+            "  inflating: images/images/train/clean/10.png  \n",
+            "  inflating: images/images/train/clean/11.png  \n",
+            "  inflating: images/images/train/clean/12.png  \n",
+            "  inflating: images/images/train/clean/13.png  \n",
+            "  inflating: images/images/train/clean/14.png  \n",
+            "  inflating: images/images/train/clean/15.png  \n",
+            "  inflating: images/images/train/clean/16.png  \n",
+            "  inflating: images/images/train/clean/17.png  \n",
+            "  inflating: images/images/train/clean/18.png  \n",
+            "  inflating: images/images/train/clean/19.png  \n",
+            "  inflating: images/images/train/clean/2.png  \n",
+            "  inflating: images/images/train/clean/20.png  \n",
+            "  inflating: images/images/train/clean/21.png  \n",
+            "  inflating: images/images/train/clean/22.png  \n",
+            "  inflating: images/images/train/clean/23.png  \n",
+            "  inflating: images/images/train/clean/24.png  \n",
+            "  inflating: images/images/train/clean/25.png  \n",
+            "  inflating: images/images/train/clean/26.png  \n",
+            "  inflating: images/images/train/clean/27.png  \n",
+            "  inflating: images/images/train/clean/28.png  \n",
+            "  inflating: images/images/train/clean/29.png  \n",
+            "  inflating: images/images/train/clean/3.png  \n",
+            "  inflating: images/images/train/clean/30.png  \n",
+            "  inflating: images/images/train/clean/31.png  \n",
+            "  inflating: images/images/train/clean/32.png  \n",
+            "  inflating: images/images/train/clean/33.png  \n",
+            "  inflating: images/images/train/clean/34.png  \n",
+            "  inflating: images/images/train/clean/35.png  \n",
+            "  inflating: images/images/train/clean/36.png  \n",
+            "  inflating: images/images/train/clean/37.png  \n",
+            "  inflating: images/images/train/clean/38.png  \n",
+            "  inflating: images/images/train/clean/39.png  \n",
+            "  inflating: images/images/train/clean/4.png  \n",
+            "  inflating: images/images/train/clean/40.png  \n",
+            "  inflating: images/images/train/clean/41.png  \n",
+            "  inflating: images/images/train/clean/42.png  \n",
+            "  inflating: images/images/train/clean/43.png  \n",
+            "  inflating: images/images/train/clean/44.png  \n",
+            "  inflating: images/images/train/clean/45.png  \n",
+            "  inflating: images/images/train/clean/46.png  \n",
+            "  inflating: images/images/train/clean/47.png  \n",
+            "  inflating: images/images/train/clean/48.png  \n",
+            "  inflating: images/images/train/clean/49.png  \n",
+            "  inflating: images/images/train/clean/5.png  \n",
+            "  inflating: images/images/train/clean/50.png  \n",
+            "  inflating: images/images/train/clean/51.png  \n",
+            "  inflating: images/images/train/clean/52.png  \n",
+            "  inflating: images/images/train/clean/53.png  \n",
+            "  inflating: images/images/train/clean/54.png  \n",
+            "  inflating: images/images/train/clean/55.png  \n",
+            "  inflating: images/images/train/clean/56.png  \n",
+            "  inflating: images/images/train/clean/57.png  \n",
+            "  inflating: images/images/train/clean/58.png  \n",
+            "  inflating: images/images/train/clean/59.png  \n",
+            "  inflating: images/images/train/clean/6.png  \n",
+            "  inflating: images/images/train/clean/60.png  \n",
+            "  inflating: images/images/train/clean/61.png  \n",
+            "  inflating: images/images/train/clean/62.png  \n",
+            "  inflating: images/images/train/clean/63.png  \n",
+            "  inflating: images/images/train/clean/64.png  \n",
+            "  inflating: images/images/train/clean/65.png  \n",
+            "  inflating: images/images/train/clean/66.png  \n",
+            "  inflating: images/images/train/clean/67.png  \n",
+            "  inflating: images/images/train/clean/68.png  \n",
+            "  inflating: images/images/train/clean/69.png  \n",
+            "  inflating: images/images/train/clean/7.png  \n",
+            "  inflating: images/images/train/clean/70.png  \n",
+            "  inflating: images/images/train/clean/71.png  \n",
+            "  inflating: images/images/train/clean/72.png  \n",
+            "  inflating: images/images/train/clean/73.png  \n",
+            "  inflating: images/images/train/clean/74.png  \n",
+            "  inflating: images/images/train/clean/75.png  \n",
+            "  inflating: images/images/train/clean/76.png  \n",
+            "  inflating: images/images/train/clean/77.png  \n",
+            "  inflating: images/images/train/clean/78.png  \n",
+            "  inflating: images/images/train/clean/79.png  \n",
+            "  inflating: images/images/train/clean/8.png  \n",
+            "  inflating: images/images/train/clean/80.png  \n",
+            "  inflating: images/images/train/clean/81.png  \n",
+            "  inflating: images/images/train/clean/82.png  \n",
+            "  inflating: images/images/train/clean/83.png  \n",
+            "  inflating: images/images/train/clean/84.png  \n",
+            "  inflating: images/images/train/clean/85.png  \n",
+            "  inflating: images/images/train/clean/86.png  \n",
+            "  inflating: images/images/train/clean/87.png  \n",
+            "  inflating: images/images/train/clean/88.png  \n",
+            "  inflating: images/images/train/clean/89.png  \n",
+            "  inflating: images/images/train/clean/9.png  \n",
+            "  inflating: images/images/train/clean/90.png  \n",
+            "  inflating: images/images/train/clean/91.png  \n",
+            "  inflating: images/images/train/clean/92.png  \n",
+            "  inflating: images/images/train/clean/93.png  \n",
+            "  inflating: images/images/train/clean/94.png  \n",
+            "  inflating: images/images/train/clean/95.png  \n",
+            "  inflating: images/images/train/messy/0.png  \n",
+            "  inflating: images/images/train/messy/1.png  \n",
+            "  inflating: images/images/train/messy/10.png  \n",
+            "  inflating: images/images/train/messy/11.png  \n",
+            "  inflating: images/images/train/messy/12.png  \n",
+            "  inflating: images/images/train/messy/13.png  \n",
+            "  inflating: images/images/train/messy/14.png  \n",
+            "  inflating: images/images/train/messy/15.png  \n",
+            "  inflating: images/images/train/messy/16.png  \n",
+            "  inflating: images/images/train/messy/17.png  \n",
+            "  inflating: images/images/train/messy/18.png  \n",
+            "  inflating: images/images/train/messy/19.png  \n",
+            "  inflating: images/images/train/messy/2.png  \n",
+            "  inflating: images/images/train/messy/20.png  \n",
+            "  inflating: images/images/train/messy/21.png  \n",
+            "  inflating: images/images/train/messy/22.png  \n",
+            "  inflating: images/images/train/messy/23.png  \n",
+            "  inflating: images/images/train/messy/24.png  \n",
+            "  inflating: images/images/train/messy/25.png  \n",
+            "  inflating: images/images/train/messy/26.png  \n",
+            "  inflating: images/images/train/messy/27.png  \n",
+            "  inflating: images/images/train/messy/28.png  \n",
+            "  inflating: images/images/train/messy/29.png  \n",
+            "  inflating: images/images/train/messy/3.png  \n",
+            "  inflating: images/images/train/messy/30.png  \n",
+            "  inflating: images/images/train/messy/31.png  \n",
+            "  inflating: images/images/train/messy/32.png  \n",
+            "  inflating: images/images/train/messy/33.png  \n",
+            "  inflating: images/images/train/messy/34.png  \n",
+            "  inflating: images/images/train/messy/35.png  \n",
+            "  inflating: images/images/train/messy/36.png  \n",
+            "  inflating: images/images/train/messy/37.png  \n",
+            "  inflating: images/images/train/messy/38.png  \n",
+            "  inflating: images/images/train/messy/39.png  \n",
+            "  inflating: images/images/train/messy/4.png  \n",
+            "  inflating: images/images/train/messy/40.png  \n",
+            "  inflating: images/images/train/messy/41.png  \n",
+            "  inflating: images/images/train/messy/42.png  \n",
+            "  inflating: images/images/train/messy/43.png  \n",
+            "  inflating: images/images/train/messy/44.png  \n",
+            "  inflating: images/images/train/messy/45.png  \n",
+            "  inflating: images/images/train/messy/46.png  \n",
+            "  inflating: images/images/train/messy/47.png  \n",
+            "  inflating: images/images/train/messy/48.png  \n",
+            "  inflating: images/images/train/messy/49.png  \n",
+            "  inflating: images/images/train/messy/5.png  \n",
+            "  inflating: images/images/train/messy/50.png  \n",
+            "  inflating: images/images/train/messy/51.png  \n",
+            "  inflating: images/images/train/messy/52.png  \n",
+            "  inflating: images/images/train/messy/53.png  \n",
+            "  inflating: images/images/train/messy/54.png  \n",
+            "  inflating: images/images/train/messy/55.png  \n",
+            "  inflating: images/images/train/messy/56.png  \n",
+            "  inflating: images/images/train/messy/57.png  \n",
+            "  inflating: images/images/train/messy/58.png  \n",
+            "  inflating: images/images/train/messy/59.png  \n",
+            "  inflating: images/images/train/messy/6.png  \n",
+            "  inflating: images/images/train/messy/60.png  \n",
+            "  inflating: images/images/train/messy/61.png  \n",
+            "  inflating: images/images/train/messy/62.png  \n",
+            "  inflating: images/images/train/messy/63.png  \n",
+            "  inflating: images/images/train/messy/64.png  \n",
+            "  inflating: images/images/train/messy/65.png  \n",
+            "  inflating: images/images/train/messy/66.png  \n",
+            "  inflating: images/images/train/messy/67.png  \n",
+            "  inflating: images/images/train/messy/68.png  \n",
+            "  inflating: images/images/train/messy/69.png  \n",
+            "  inflating: images/images/train/messy/7.png  \n",
+            "  inflating: images/images/train/messy/70.png  \n",
+            "  inflating: images/images/train/messy/71.png  \n",
+            "  inflating: images/images/train/messy/72.png  \n",
+            "  inflating: images/images/train/messy/73.png  \n",
+            "  inflating: images/images/train/messy/74.png  \n",
+            "  inflating: images/images/train/messy/75.png  \n",
+            "  inflating: images/images/train/messy/76.png  \n",
+            "  inflating: images/images/train/messy/77.png  \n",
+            "  inflating: images/images/train/messy/78.png  \n",
+            "  inflating: images/images/train/messy/79.png  \n",
+            "  inflating: images/images/train/messy/8.png  \n",
+            "  inflating: images/images/train/messy/80.png  \n",
+            "  inflating: images/images/train/messy/81.png  \n",
+            "  inflating: images/images/train/messy/82.png  \n",
+            "  inflating: images/images/train/messy/83.png  \n",
+            "  inflating: images/images/train/messy/84.png  \n",
+            "  inflating: images/images/train/messy/85.png  \n",
+            "  inflating: images/images/train/messy/86.png  \n",
+            "  inflating: images/images/train/messy/87.png  \n",
+            "  inflating: images/images/train/messy/88.png  \n",
+            "  inflating: images/images/train/messy/89.png  \n",
+            "  inflating: images/images/train/messy/9.png  \n",
+            "  inflating: images/images/train/messy/90.png  \n",
+            "  inflating: images/images/train/messy/91.png  \n",
+            "  inflating: images/images/train/messy/92.png  \n",
+            "  inflating: images/images/train/messy/93.png  \n",
+            "  inflating: images/images/train/messy/94.png  \n",
+            "  inflating: images/images/train/messy/95.png  \n",
+            "  inflating: images/images/val/clean/0.png  \n",
+            "  inflating: images/images/val/clean/1.png  \n",
+            "  inflating: images/images/val/clean/2.png  \n",
+            "  inflating: images/images/val/clean/3.png  \n",
+            "  inflating: images/images/val/clean/4.png  \n",
+            "  inflating: images/images/val/clean/5.png  \n",
+            "  inflating: images/images/val/clean/6.png  \n",
+            "  inflating: images/images/val/clean/7.png  \n",
+            "  inflating: images/images/val/clean/8.png  \n",
+            "  inflating: images/images/val/clean/9.png  \n",
+            "  inflating: images/images/val/messy/0.png  \n",
+            "  inflating: images/images/val/messy/1.png  \n",
+            "  inflating: images/images/val/messy/2.png  \n",
+            "  inflating: images/images/val/messy/3.png  \n",
+            "  inflating: images/images/val/messy/4.png  \n",
+            "  inflating: images/images/val/messy/5.png  \n",
+            "  inflating: images/images/val/messy/6.png  \n",
+            "  inflating: images/images/val/messy/7.png  \n",
+            "  inflating: images/images/val/messy/8.png  \n",
+            "  inflating: images/images/val/messy/9.png  \n",
+            "  inflating: images/test/0.png       \n",
+            "  inflating: images/test/1.png       \n",
+            "  inflating: images/test/2.png       \n",
+            "  inflating: images/test/3.png       \n",
+            "  inflating: images/test/4.png       \n",
+            "  inflating: images/test/5.png       \n",
+            "  inflating: images/test/6.png       \n",
+            "  inflating: images/test/7.png       \n",
+            "  inflating: images/test/8.png       \n",
+            "  inflating: images/test/9.png       \n",
+            "  inflating: images/train/clean/0.png  \n",
+            "  inflating: images/train/clean/1.png  \n",
+            "  inflating: images/train/clean/10.png  \n",
+            "  inflating: images/train/clean/11.png  \n",
+            "  inflating: images/train/clean/12.png  \n",
+            "  inflating: images/train/clean/13.png  \n",
+            "  inflating: images/train/clean/14.png  \n",
+            "  inflating: images/train/clean/15.png  \n",
+            "  inflating: images/train/clean/16.png  \n",
+            "  inflating: images/train/clean/17.png  \n",
+            "  inflating: images/train/clean/18.png  \n",
+            "  inflating: images/train/clean/19.png  \n",
+            "  inflating: images/train/clean/2.png  \n",
+            "  inflating: images/train/clean/20.png  \n",
+            "  inflating: images/train/clean/21.png  \n",
+            "  inflating: images/train/clean/22.png  \n",
+            "  inflating: images/train/clean/23.png  \n",
+            "  inflating: images/train/clean/24.png  \n",
+            "  inflating: images/train/clean/25.png  \n",
+            "  inflating: images/train/clean/26.png  \n",
+            "  inflating: images/train/clean/27.png  \n",
+            "  inflating: images/train/clean/28.png  \n",
+            "  inflating: images/train/clean/29.png  \n",
+            "  inflating: images/train/clean/3.png  \n",
+            "  inflating: images/train/clean/30.png  \n",
+            "  inflating: images/train/clean/31.png  \n",
+            "  inflating: images/train/clean/32.png  \n",
+            "  inflating: images/train/clean/33.png  \n",
+            "  inflating: images/train/clean/34.png  \n",
+            "  inflating: images/train/clean/35.png  \n",
+            "  inflating: images/train/clean/36.png  \n",
+            "  inflating: images/train/clean/37.png  \n",
+            "  inflating: images/train/clean/38.png  \n",
+            "  inflating: images/train/clean/39.png  \n",
+            "  inflating: images/train/clean/4.png  \n",
+            "  inflating: images/train/clean/40.png  \n",
+            "  inflating: images/train/clean/41.png  \n",
+            "  inflating: images/train/clean/42.png  \n",
+            "  inflating: images/train/clean/43.png  \n",
+            "  inflating: images/train/clean/44.png  \n",
+            "  inflating: images/train/clean/45.png  \n",
+            "  inflating: images/train/clean/46.png  \n",
+            "  inflating: images/train/clean/47.png  \n",
+            "  inflating: images/train/clean/48.png  \n",
+            "  inflating: images/train/clean/49.png  \n",
+            "  inflating: images/train/clean/5.png  \n",
+            "  inflating: images/train/clean/50.png  \n",
+            "  inflating: images/train/clean/51.png  \n",
+            "  inflating: images/train/clean/52.png  \n",
+            "  inflating: images/train/clean/53.png  \n",
+            "  inflating: images/train/clean/54.png  \n",
+            "  inflating: images/train/clean/55.png  \n",
+            "  inflating: images/train/clean/56.png  \n",
+            "  inflating: images/train/clean/57.png  \n",
+            "  inflating: images/train/clean/58.png  \n",
+            "  inflating: images/train/clean/59.png  \n",
+            "  inflating: images/train/clean/6.png  \n",
+            "  inflating: images/train/clean/60.png  \n",
+            "  inflating: images/train/clean/61.png  \n",
+            "  inflating: images/train/clean/62.png  \n",
+            "  inflating: images/train/clean/63.png  \n",
+            "  inflating: images/train/clean/64.png  \n",
+            "  inflating: images/train/clean/65.png  \n",
+            "  inflating: images/train/clean/66.png  \n",
+            "  inflating: images/train/clean/67.png  \n",
+            "  inflating: images/train/clean/68.png  \n",
+            "  inflating: images/train/clean/69.png  \n",
+            "  inflating: images/train/clean/7.png  \n",
+            "  inflating: images/train/clean/70.png  \n",
+            "  inflating: images/train/clean/71.png  \n",
+            "  inflating: images/train/clean/72.png  \n",
+            "  inflating: images/train/clean/73.png  \n",
+            "  inflating: images/train/clean/74.png  \n",
+            "  inflating: images/train/clean/75.png  \n",
+            "  inflating: images/train/clean/76.png  \n",
+            "  inflating: images/train/clean/77.png  \n",
+            "  inflating: images/train/clean/78.png  \n",
+            "  inflating: images/train/clean/79.png  \n",
+            "  inflating: images/train/clean/8.png  \n",
+            "  inflating: images/train/clean/80.png  \n",
+            "  inflating: images/train/clean/81.png  \n",
+            "  inflating: images/train/clean/82.png  \n",
+            "  inflating: images/train/clean/83.png  \n",
+            "  inflating: images/train/clean/84.png  \n",
+            "  inflating: images/train/clean/85.png  \n",
+            "  inflating: images/train/clean/86.png  \n",
+            "  inflating: images/train/clean/87.png  \n",
+            "  inflating: images/train/clean/88.png  \n",
+            "  inflating: images/train/clean/89.png  \n",
+            "  inflating: images/train/clean/9.png  \n",
+            "  inflating: images/train/clean/90.png  \n",
+            "  inflating: images/train/clean/91.png  \n",
+            "  inflating: images/train/clean/92.png  \n",
+            "  inflating: images/train/clean/93.png  \n",
+            "  inflating: images/train/clean/94.png  \n",
+            "  inflating: images/train/clean/95.png  \n",
+            "  inflating: images/train/messy/0.png  \n",
+            "  inflating: images/train/messy/1.png  \n",
+            "  inflating: images/train/messy/10.png  \n",
+            "  inflating: images/train/messy/11.png  \n",
+            "  inflating: images/train/messy/12.png  \n",
+            "  inflating: images/train/messy/13.png  \n",
+            "  inflating: images/train/messy/14.png  \n",
+            "  inflating: images/train/messy/15.png  \n",
+            "  inflating: images/train/messy/16.png  \n",
+            "  inflating: images/train/messy/17.png  \n",
+            "  inflating: images/train/messy/18.png  \n",
+            "  inflating: images/train/messy/19.png  \n",
+            "  inflating: images/train/messy/2.png  \n",
+            "  inflating: images/train/messy/20.png  \n",
+            "  inflating: images/train/messy/21.png  \n",
+            "  inflating: images/train/messy/22.png  \n",
+            "  inflating: images/train/messy/23.png  \n",
+            "  inflating: images/train/messy/24.png  \n",
+            "  inflating: images/train/messy/25.png  \n",
+            "  inflating: images/train/messy/26.png  \n",
+            "  inflating: images/train/messy/27.png  \n",
+            "  inflating: images/train/messy/28.png  \n",
+            "  inflating: images/train/messy/29.png  \n",
+            "  inflating: images/train/messy/3.png  \n",
+            "  inflating: images/train/messy/30.png  \n",
+            "  inflating: images/train/messy/31.png  \n",
+            "  inflating: images/train/messy/32.png  \n",
+            "  inflating: images/train/messy/33.png  \n",
+            "  inflating: images/train/messy/34.png  \n",
+            "  inflating: images/train/messy/35.png  \n",
+            "  inflating: images/train/messy/36.png  \n",
+            "  inflating: images/train/messy/37.png  \n",
+            "  inflating: images/train/messy/38.png  \n",
+            "  inflating: images/train/messy/39.png  \n",
+            "  inflating: images/train/messy/4.png  \n",
+            "  inflating: images/train/messy/40.png  \n",
+            "  inflating: images/train/messy/41.png  \n",
+            "  inflating: images/train/messy/42.png  \n",
+            "  inflating: images/train/messy/43.png  \n",
+            "  inflating: images/train/messy/44.png  \n",
+            "  inflating: images/train/messy/45.png  \n",
+            "  inflating: images/train/messy/46.png  \n",
+            "  inflating: images/train/messy/47.png  \n",
+            "  inflating: images/train/messy/48.png  \n",
+            "  inflating: images/train/messy/49.png  \n",
+            "  inflating: images/train/messy/5.png  \n",
+            "  inflating: images/train/messy/50.png  \n",
+            "  inflating: images/train/messy/51.png  \n",
+            "  inflating: images/train/messy/52.png  \n",
+            "  inflating: images/train/messy/53.png  \n",
+            "  inflating: images/train/messy/54.png  \n",
+            "  inflating: images/train/messy/55.png  \n",
+            "  inflating: images/train/messy/56.png  \n",
+            "  inflating: images/train/messy/57.png  \n",
+            "  inflating: images/train/messy/58.png  \n",
+            "  inflating: images/train/messy/59.png  \n",
+            "  inflating: images/train/messy/6.png  \n",
+            "  inflating: images/train/messy/60.png  \n",
+            "  inflating: images/train/messy/61.png  \n",
+            "  inflating: images/train/messy/62.png  \n",
+            "  inflating: images/train/messy/63.png  \n",
+            "  inflating: images/train/messy/64.png  \n",
+            "  inflating: images/train/messy/65.png  \n",
+            "  inflating: images/train/messy/66.png  \n",
+            "  inflating: images/train/messy/67.png  \n",
+            "  inflating: images/train/messy/68.png  \n",
+            "  inflating: images/train/messy/69.png  \n",
+            "  inflating: images/train/messy/7.png  \n",
+            "  inflating: images/train/messy/70.png  \n",
+            "  inflating: images/train/messy/71.png  \n",
+            "  inflating: images/train/messy/72.png  \n",
+            "  inflating: images/train/messy/73.png  \n",
+            "  inflating: images/train/messy/74.png  \n",
+            "  inflating: images/train/messy/75.png  \n",
+            "  inflating: images/train/messy/76.png  \n",
+            "  inflating: images/train/messy/77.png  \n",
+            "  inflating: images/train/messy/78.png  \n",
+            "  inflating: images/train/messy/79.png  \n",
+            "  inflating: images/train/messy/8.png  \n",
+            "  inflating: images/train/messy/80.png  \n",
+            "  inflating: images/train/messy/81.png  \n",
+            "  inflating: images/train/messy/82.png  \n",
+            "  inflating: images/train/messy/83.png  \n",
+            "  inflating: images/train/messy/84.png  \n",
+            "  inflating: images/train/messy/85.png  \n",
+            "  inflating: images/train/messy/86.png  \n",
+            "  inflating: images/train/messy/87.png  \n",
+            "  inflating: images/train/messy/88.png  \n",
+            "  inflating: images/train/messy/89.png  \n",
+            "  inflating: images/train/messy/9.png  \n",
+            "  inflating: images/train/messy/90.png  \n",
+            "  inflating: images/train/messy/91.png  \n",
+            "  inflating: images/train/messy/92.png  \n",
+            "  inflating: images/train/messy/93.png  \n",
+            "  inflating: images/train/messy/94.png  \n",
+            "  inflating: images/train/messy/95.png  \n",
+            "  inflating: images/val/clean/0.png  \n",
+            "  inflating: images/val/clean/1.png  \n",
+            "  inflating: images/val/clean/2.png  \n",
+            "  inflating: images/val/clean/3.png  \n",
+            "  inflating: images/val/clean/4.png  \n",
+            "  inflating: images/val/clean/5.png  \n",
+            "  inflating: images/val/clean/6.png  \n",
+            "  inflating: images/val/clean/7.png  \n",
+            "  inflating: images/val/clean/8.png  \n",
+            "  inflating: images/val/clean/9.png  \n",
+            "  inflating: images/val/messy/0.png  \n",
+            "  inflating: images/val/messy/1.png  \n",
+            "  inflating: images/val/messy/2.png  \n",
+            "  inflating: images/val/messy/3.png  \n",
+            "  inflating: images/val/messy/4.png  \n",
+            "  inflating: images/val/messy/5.png  \n",
+            "  inflating: images/val/messy/6.png  \n",
+            "  inflating: images/val/messy/7.png  \n",
+            "  inflating: images/val/messy/8.png  \n",
+            "  inflating: images/val/messy/9.png  \n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "n4AqAkVfpwuW",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "train_dir = os.path.join(path, 'images/train')\n",
+        "validation_dir = os.path.join(path, 'images/val')\n",
+        "\n",
+        "train_messy_dir = os.path.join(train_dir, 'messy')\n",
+        "train_clean_dir = os.path.join(train_dir, 'clean')  \n",
+        "validation_messy_dir = os.path.join(validation_dir, 'messy') \n",
+        "validation_clean_dir = os.path.join(validation_dir, 'clean')  "
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oTeZXLKmqQUi",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "epochs = 15\n",
+        "batch_size = 128\n",
+        "IMAGE_SIZE = (150, 150)\n",
+        "CLASS_NAMES = ['messy','clean']"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "J5HH0XYjqQ-i",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "train_image_generator = ImageDataGenerator(rescale=1./255)\n",
+        "validation_image_generator = ImageDataGenerator(rescale=1./255)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "nYYeGeAkrArF",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "train_data_gen = train_image_generator.flow_from_directory(batch_size=batch_size,\n",
+        "                                                           directory=train_dir,\n",
+        "                                                           shuffle=True,\n",
+        "                                                           target_size=IMAGE_SIZE,\n",
+        "                                                           class_mode='binary')"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "ZoRA0z8grKL3",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "val_data_gen = validation_image_generator.flow_from_directory(batch_size=batch_size,\n",
+        "                                                              directory=validation_dir,\n",
+        "                                                              target_size=IMAGE_SIZE,\n",
+        "                                                              class_mode='binary')"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "mC5DiISOrN5J",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "training_batch, labels_batch = next(train_data_gen)\n",
+        "training_batch.shape, labels_batch.shape"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "liDPgScDrSUW",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "def plot_images(img_batch, labels=None):\n",
+        "  range_count = 15 if len(img_batch) > 15 else len(img_batch)\n",
+        "  plt.figure(figsize=(12,12))\n",
+        "  for i in range(range_count):\n",
+        "    plt.subplot(4,5,i+1) \n",
+        "    plt.imshow(img_batch[i])\n",
+        "    if (labels is not None):\n",
+        "      plt.title(CLASS_NAMES[np.int(labels[i])]) \n",
+        "    plt.axis('off')"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "gwhx9O6VrU2R",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "plot_images(training_batch, labels_batch)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "NXvX_o_N2CwP",
+        "colab_type": "text"
+      },
+      "source": [
+        "#Fully connected neural netowrk"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "-gG1FhIQBQhM",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "def plot_accuracy_and_loss(history, acc_ylim=[min(plt.ylim()),1.0], loss_ylim=[0,2.0]):\n",
+        "  acc = history.history['accuracy']\n",
+        "  val_acc = history.history['val_accuracy']\n",
+        "\n",
+        "  loss = history.history['loss']\n",
+        "  val_loss = history.history['val_loss']\n",
+        "\n",
+        "  plt.figure(figsize=(8, 8))\n",
+        "  plt.subplot(2, 1, 1)\n",
+        "  plt.plot(acc, label='Training Accuracy')\n",
+        "  plt.plot(val_acc, label='Validation Accuracy')\n",
+        "  plt.legend(loc='lower right')\n",
+        "  plt.ylabel('Accuracy')\n",
+        "  plt.ylim(acc_ylim)\n",
+        "  plt.title('Training and Validation Accuracy')\n",
+        "\n",
+        "  plt.subplot(2, 1, 2)\n",
+        "  plt.plot(loss, label='Training Loss')\n",
+        "  plt.plot(val_loss, label='Validation Loss')\n",
+        "  plt.legend(loc='upper right')\n",
+        "  plt.ylabel('Cross Entropy')\n",
+        "  plt.ylim(loss_ylim)\n",
+        "  plt.title('Training and Validation Loss')\n",
+        "  plt.xlabel('epoch')\n",
+        "  plt.show()\n",
+        "\n",
+        "def train(m, train_data=train_data_gen, epochs=epochs):\n",
+        "  return m.fit(\n",
+        "            train_data,\n",
+        "            steps_per_epoch=total_train // batch_size,\n",
+        "            epochs=epochs,\n",
+        "            validation_data=val_data_gen,\n",
+        "            validation_steps=total_val // batch_size\n",
+        "          )"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "MwseGnAVrsD6",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model = Sequential([\n",
+        "  Flatten(input_shape=IMAGE_SIZE+(3,)),\n",
+        "  Dense(1024, activation='tanh'),\n",
+        "  Dense(512, activation='tanh'),\n",
+        "  Dense(1, activation='sigmoid')\n",
+        "])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "zihWIIk9r_OO",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.compile(optimizer='adam',\n",
+        "              loss='binary_crossentropy',\n",
+        "              metrics=['accuracy'])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "YZev5ILisCk3",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.summary()"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "sVTE2_qSsHmH",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "history = train(model)\n",
+        "plot_accuracy_and_loss(history)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "efBm3pqDk3GR",
+        "colab_type": "text"
+      },
+      "source": [
+        "#ConvNet"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Xe91vH3a2PVn",
+        "colab_type": "text"
+      },
+      "source": [
+        "##Convolution"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "lKPBD4bBswt9",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "img = training_batch[1]\n",
+        "plt.axis('off')\n",
+        "plt.imshow(img)\n"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "aRj5U55r4xY3",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "def plot_filters(layer):\n",
+        "    filters = layer.shape[3]\n",
+        "\n",
+        "    columns = 8\n",
+        "    #rows = ((filters-1) // columns) + 1\n",
+        "    plt.figure(figsize=(20,20))    \n",
+        "    for i in range(filters):\n",
+        "      plt.subplot(columns, columns, i+1)\n",
+        "      plt.title('Filter ' + str(i), color='white')\n",
+        "      plt.axis('off')\n",
+        "      plt.imshow(layer[0,:,:,i], interpolation=\"nearest\", cmap=\"gray\")"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "z_uzPJhZzdkv",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "conv = Conv2D(1, 3, padding='same', input_shape=IMAGE_SIZE+(3,))\n",
+        "out = conv(tf.expand_dims(img, 0))\n",
+        "plot_filters(out.numpy())"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "SQp6eR8j3PZD",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "conv = Conv2D(16, 3, padding='same', input_shape=IMAGE_SIZE+(3,))\n",
+        "out = conv(tf.expand_dims(img, 0))\n",
+        "plot_filters(out.numpy())"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "8udXKQay2RuB",
+        "colab_type": "text"
+      },
+      "source": [
+        "##ConvModel"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "pQy3Cu-t-m78",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model = Sequential([\n",
+        "    Conv2D(32, 3, padding='same', activation='relu', input_shape=IMAGE_SIZE+(3,)),\n",
+        "    MaxPooling2D(),\n",
+        "    Conv2D(64, 3, padding='same', activation='relu'),\n",
+        "    MaxPooling2D(),\n",
+        "    Conv2D(128, 3, padding='same', activation='relu'),\n",
+        "    MaxPooling2D(),\n",
+        "    Flatten(),\n",
+        "    Dense(128, activation='relu'),\n",
+        "    Dense(1, activation='sigmoid')\n",
+        "])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "1900Sr1ABVoa",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.compile(optimizer='adam',\n",
+        "              loss='binary_crossentropy',\n",
+        "              metrics=['accuracy'])\n",
+        "\n",
+        "model.summary()"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "uWnvYME3B9WZ",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "def plot_model_filters(layers, img):\n",
+        "  input = tf.expand_dims(img, 0)\n",
+        "  for filter_layer in layers:\n",
+        "    output = filter_layer(input)    \n",
+        "    input = output\n",
+        "    print(filter_layer)\n",
+        "    plot_filters(output.numpy())\n",
+        "  return\n"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "OXtJpXZQMOrT",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "plot_model_filters(model.layers[:2], img)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "9HcPY3F33Q3j",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "history = train(model)\n",
+        "plot_accuracy_and_loss(history)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "GpJhsaSeEW9-",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "plot_model_filters(model.layers[:4], img)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "9caGVZTa2Yzf",
+        "colab_type": "text"
+      },
+      "source": [
+        "#Overfitting"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "SPCiFV4d2aHB",
+        "colab_type": "text"
+      },
+      "source": [
+        "##Dropout"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "x32RAaF7BH-J",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model = Sequential([\n",
+        "    Conv2D(32, 3, padding='same', activation='relu', input_shape=IMAGE_SIZE+(3,)),\n",
+        "    MaxPooling2D(),\n",
+        "    Conv2D(64, 3, padding='same', activation='relu'),\n",
+        "    MaxPooling2D(),\n",
+        "    Conv2D(128, 3, padding='same', activation='relu'),\n",
+        "    MaxPooling2D(),\n",
+        "    Flatten(),\n",
+        "    Dense(128, activation='relu'),\n",
+        "    Dropout(0.2),\n",
+        "    Dense(1, activation='sigmoid')\n",
+        "])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oO_8uYwcBJuP",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.compile(optimizer='adam',\n",
+        "              loss='binary_crossentropy',\n",
+        "              metrics=['accuracy'])\n",
+        "\n",
+        "model.summary()"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "SXErPbGUBLst",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "history = train(model, train_data_gen)\n"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "x5O8sg8-pN4F",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "plot_accuracy_and_loss(history, acc_ylim=[0.5,1.0],loss_ylim=[0.5,0.75])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "VmII-lmX2fQ1",
+        "colab_type": "text"
+      },
+      "source": [
+        "##Data augmentation"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "--ljIUFe2ek0",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "augmented_image_gen = ImageDataGenerator(rescale=1./255, horizontal_flip=True)\n",
+        "augmented_train_data_gen = augmented_image_gen.flow_from_directory(batch_size=batch_size,\n",
+        "                                                           directory=train_dir,\n",
+        "                                                           shuffle=True,\n",
+        "                                                           target_size=IMAGE_SIZE,\n",
+        "                                                           class_mode='binary')\n",
+        "plot_images([augmented_train_data_gen[0][0][0] for i in range(5)])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "a2_bW_l44BZc",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "augmented_image_gen = ImageDataGenerator(rescale=1./255, rotation_range=45)\n",
+        "augmented_train_data_gen = augmented_image_gen.flow_from_directory(batch_size=batch_size,\n",
+        "                                                           directory=train_dir,\n",
+        "                                                           shuffle=True,\n",
+        "                                                           target_size=IMAGE_SIZE,\n",
+        "                                                           class_mode='binary')\n",
+        "plot_images([augmented_train_data_gen[0][0][0] for i in range(5)])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "1OLPO5yL-sfO",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "augmented_image_gen = ImageDataGenerator(\n",
+        "                                rescale=1./255,\n",
+        "                                rotation_range=45,\n",
+        "                                width_shift_range=.15,\n",
+        "                                height_shift_range=.15,\n",
+        "                                horizontal_flip=True,\n",
+        "                                zoom_range=0.5\n",
+        "                                )\n",
+        "\n",
+        "augmented_train_data_gen = augmented_image_gen.flow_from_directory(batch_size=batch_size,\n",
+        "                                                           directory=train_dir,\n",
+        "                                                           shuffle=True,\n",
+        "                                                           target_size=IMAGE_SIZE,\n",
+        "                                                           class_mode='binary')\n",
+        "plot_images([augmented_train_data_gen[0][0][0] for i in range(5)])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "4n6_njC8E4Qd",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.summary()\n",
+        "history = train(model, augmented_train_data_gen)\n",
+        "plot_accuracy_and_loss(history, acc_ylim=[0.5,0.8],loss_ylim=[0.5,0.75])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    }
+  ]
+}
